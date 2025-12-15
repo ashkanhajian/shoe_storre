@@ -49,9 +49,9 @@ export function CartProvider({ children }) {
     );
   }
 
-  function clear() {
-    setItems([]);
-  }
+function clear() {
+  setItems((prev) => (prev.length === 0 ? prev : []));
+}
 
   const total = items.reduce((s, i) => s + i.price * i.qty, 0);
 

@@ -1,14 +1,9 @@
-import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 export default function MockPay() {
   const [sp] = useSearchParams();
+  const nav = useNavigate();
   const authority = sp.get("authority") || "";
-  const [msg, setMsg] = useState("");
-
-  useEffect(() => {
-    if (!authority) setMsg("authority یافت نشد.");
-  }, [authority]);
 
   return (
     <div style={{ padding: 24, fontFamily: "sans-serif", maxWidth: 700, margin: "0 auto" }}>
@@ -19,17 +14,11 @@ export default function MockPay() {
         این صفحه شبیه‌سازی درگاه است. یکی از گزینه‌ها را انتخاب کن:
       </p>
 
-      {msg && <pre style={{ whiteSpace: "pre-wrap" }}>{msg}</pre>}
-
       <div style={{ display: "flex", gap: 12 }}>
         <button
           style={{ padding: "10px 14px" }}
           disabled={!authority}
-          onClick={() => {
-            window.location.href = `/api/payments/mock-return/?authority=${encodeURIComponent(
-              authority
-            )}&status=ok`;
-          }}
+          onClick={() => nav(`/pay/result?authority=${encodeURIComponent(authority)}&status=ok`)}
         >
           پرداخت موفق
         </button>
@@ -37,11 +26,7 @@ export default function MockPay() {
         <button
           style={{ padding: "10px 14px" }}
           disabled={!authority}
-          onClick={() => {
-            window.location.href = `/api/payments/mock-return/?authority=${encodeURIComponent(
-              authority
-            )}&status=fail`;
-          }}
+          onClick={() => nav(`/pay/result?authority=${encodeURIComponent(authority)}&status=fail`)}
         >
           پرداخت ناموفق
         </button>
@@ -52,7 +37,7 @@ export default function MockPay() {
       </div>
 
       <p style={{ marginTop: 18, fontSize: 12, opacity: 0.7 }}>
-        بعداً این صفحه را با ریدایرکت واقعی به درگاه (زرین‌پال/…) جایگزین می‌کنیم.
+        نتیجه پرداخت در صفحه جدا بررسی و نمایش داده می‌شود.
       </p>
     </div>
   );

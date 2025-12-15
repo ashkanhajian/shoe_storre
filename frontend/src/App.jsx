@@ -1,18 +1,27 @@
 import { Routes, Route, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-
+import PaymentResult from "./pages/PaymentResult.jsx";
 import ProductDetail from "./pages/ProductDetail.jsx";
 import Cart from "./pages/Cart.jsx";
 import MockPay from "./pages/MockPay.jsx";
+import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
+import MyOrders from "./pages/MyOrders.jsx";
+import Skeleton from "./ui/Skeleton.jsx";
+
+import ProtectedRoute from "./auth/ProtectedRoute.jsx";
 import { useCart } from "./cart/CartContext.jsx";
+import { useAuth } from "./auth/AuthContext.jsx";
 
 export default function App() {
   const { items } = useCart();
+  const { user, logout } = useAuth();
 
   const [products, setProducts] = useState([]);
   const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // fetch products
   useEffect(() => {
     setLoading(true);
     fetch("/api/products/")
@@ -33,7 +42,7 @@ export default function App() {
   return (
     <div style={{ fontFamily: "sans-serif" }}>
       {/* Header */}
-      <div
+      <header
         style={{
           display: "flex",
           justifyContent: "space-between",
@@ -46,20 +55,48 @@ export default function App() {
           <div style={{ fontSize: 20, fontWeight: 800 }}>Shoe Store</div>
         </Link>
 
-        <nav style={{ display: "flex", gap: 16 }}>
+        <nav style={{ display: "flex", gap: 16, alignItems: "center" }}>
           <Link to="/">محصولات</Link>
           <Link to="/cart">سبد خرید ({cartCount})</Link>
+
+          {user ? (
+            <>
+              <Link to="/my-orders">سفارش‌های من</Link>
+              <button
+                onClick={logout}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #ddd",
+                  background: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                خروج ({user.username})
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login">ورود</Link>
+              <Link to="/register">ثبت‌نام</Link>
+            </>
+          )}
         </nav>
-      </div>
+      </header>
 
       {/* Routes */}
       <Routes>
+        {/* Home / Product List */}
         <Route
           path="/"
           element={
             <div style={{ padding: 24 }}>
               {loading && <p>Loading products...</p>}
               {err && <pre style={{ whiteSpace: "pre-wrap" }}>{err}</pre>}
+
+              {!loading && !err && products.length === 0 && (
+                <p>هیچ محصولی پیدا نشد.</p>
+              )}
 
               <div
                 style={{
@@ -93,7 +130,7 @@ export default function App() {
                           }}
                         />
                       )}
-                      <h3>{p.title}</h3>
+                      <h3 style={{ margin: "10px 0 6px" }}>{p.title}</h3>
                       <div style={{ fontSize: 12, opacity: 0.7 }}>
                         {p.brand} • {p.category}
                       </div>
@@ -105,19 +142,41 @@ export default function App() {
           }
         />
 
+        {/* Product Detail */}
         <Route path="/products/:slug" element={<ProductDetail />} />
+
+        {/* Cart */}
         <Route path="/cart" element={<Cart />} />
+
+        {/* Mock Payment */}
         <Route path="/pay/mock" element={<MockPay />} />
 
+        {/* Auth */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* My Orders (Protected) */}
+        <Route
+          path="/my-orders"
+          element={
+            <ProtectedRoute>
+              <MyOrders />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 404 */}
         <Route
           path="*"
           element={
             <div style={{ padding: 24 }}>
               <h2>صفحه پیدا نشد</h2>
-              <Link to="/">بازگشت</Link>
+              <Link to="/">بازگشت به خانه</Link>
             </div>
           }
         />
+          <Route path="/pay/result" element={<PaymentResult />} />
+
       </Routes>
     </div>
   );

@@ -1,67 +1,59 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
+
 import { useCart } from "../cart/CartContext.jsx";
+import { apiFetch } from "../api/client.js";
 
 export default function Cart() {
   const { items, removeItem, changeQty, total, clear } = useCart();
 
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(null);
-  const [info, setInfo] = useState(null);
 
   async function handleCheckout() {
-    setErr(null);
-    setInfo(null);
-
     if (items.length === 0) {
-      setErr("سبد خرید خالی است.");
+      toast.error("سبد خرید خالی است");
       return;
     }
 
     setBusy(true);
+    toast.loading("در حال ثبت سفارش...", { id: "checkout" });
+
     try {
-      // 1) ساخت سفارش
+      // 1) Create order (backend validates stock & price)
       const orderPayload = {
         items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
       };
 
-      const orderResp = await fetch("/api/orders/", {
+      const orderRes = await apiFetch("/api/orders/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderPayload),
       });
 
-      const orderText = await orderResp.text();
-      if (!orderResp.ok) {
-        throw new Error(`Order failed: HTTP ${orderResp.status}\n${orderText}`);
-      }
-
-      const orderData = JSON.parse(orderText);
       // انتظار: { order_id, total }
-      setInfo(`Order created. order_id=${orderData.order_id} total=${orderData.total}`);
+      toast.success(`سفارش ثبت شد (شماره: ${orderRes.order_id})`, { id: "checkout" });
 
-      // 2) initiate payment
-      const payResp = await fetch("/api/payments/initiate/", {
+      // 2) Initiate payment (mock gateway)
+      toast.loading("انتقال به درگاه...", { id: "checkout" });
+
+      const payRes = await apiFetch("/api/payments/initiate/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order_id: orderData.order_id }),
+        body: JSON.stringify({ order_id: orderRes.order_id }),
       });
 
-      const payText = await payResp.text();
-      if (!payResp.ok) {
-        throw new Error(`Payment initiate failed: HTTP ${payResp.status}\n${payText}`);
+      if (!payRes?.payment_url) {
+        throw new Error("payment_url در پاسخ وجود ندارد");
       }
 
-      const payData = JSON.parse(payText);
-      // انتظار: { payment_url, authority, transaction_id }
-      if (!payData.payment_url) {
-        throw new Error(`Payment initiate returned no payment_url:\n${payText}`);
-      }
+      toast.success("در حال انتقال...", { id: "checkout" });
 
-      // 3) رفتن به درگاه mock
-      window.location.href = payData.payment_url;
+      // NOTE: سبد را اینجا خالی نکن؛ بهتر است بعد از پرداخت موفق خالی شود.
+      // clear();
+
+      window.location.href = payRes.payment_url;
     } catch (e) {
-      setErr(String(e?.message || e));
+      const msg = String(e?.message || e);
+      toast.error(msg, { id: "checkout" });
     } finally {
       setBusy(false);
     }
@@ -80,43 +72,29 @@ export default function Cart() {
     <div style={{ padding: 24, fontFamily: "sans-serif", maxWidth: 900, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2 style={{ margin: 0 }}>سبد خرید</h2>
+
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <button onClick={clear} disabled={busy} style={{ padding: "8px 12px" }}>
+          <button
+            onClick={() => {
+              if (busy) return;
+              clear();
+              toast.success("سبد خرید خالی شد");
+            }}
+            disabled={busy}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid #ddd",
+              background: "#fff",
+              cursor: busy ? "not-allowed" : "pointer",
+            }}
+          >
             خالی کردن سبد
           </button>
+
           <Link to="/">ادامه خرید</Link>
         </div>
       </div>
-
-      {err && (
-        <pre
-          style={{
-            marginTop: 12,
-            padding: 12,
-            border: "1px solid #f5c2c7",
-            background: "#f8d7da",
-            borderRadius: 10,
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {err}
-        </pre>
-      )}
-
-      {info && (
-        <pre
-          style={{
-            marginTop: 12,
-            padding: 12,
-            border: "1px solid #b6d4fe",
-            background: "#cfe2ff",
-            borderRadius: 10,
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {info}
-        </pre>
-      )}
 
       <div style={{ marginTop: 16 }}>
         {items.map((i) => (
@@ -149,16 +127,24 @@ export default function Cart() {
                 const q = Number(e.target.value);
                 if (Number.isFinite(q) && q >= 1) changeQty(i.variantId, q);
               }}
-              style={{ padding: 8 }}
+              style={{
+                padding: 8,
+                borderRadius: 8,
+                border: "1px solid #ddd",
+              }}
             />
 
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 12, opacity: 0.7 }}>مبلغ</div>
-              <div style={{ fontWeight: 700 }}>{(i.price * i.qty).toLocaleString()}</div>
+              <div style={{ fontWeight: 800 }}>{(i.price * i.qty).toLocaleString()}</div>
             </div>
 
             <button
-              onClick={() => removeItem(i.variantId)}
+              onClick={() => {
+                if (busy) return;
+                removeItem(i.variantId);
+                toast.success("از سبد حذف شد");
+              }}
               disabled={busy}
               title="حذف"
               style={{
@@ -179,11 +165,13 @@ export default function Cart() {
       <hr style={{ margin: "16px 0" }} />
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 12, opacity: 0.7 }}>{items.length} آیتم</div>
+        <div style={{ fontSize: 12, opacity: 0.7 }}>
+          {items.length} آیتم
+        </div>
 
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: 12, opacity: 0.7 }}>جمع کل</div>
-          <div style={{ fontSize: 20, fontWeight: 800 }}>{total.toLocaleString()}</div>
+          <div style={{ fontSize: 20, fontWeight: 900 }}>{total.toLocaleString()}</div>
         </div>
       </div>
 
@@ -198,12 +186,16 @@ export default function Cart() {
           border: "none",
           background: busy ? "#777" : "#000",
           color: "#fff",
-          fontWeight: 700,
+          fontWeight: 800,
           cursor: busy ? "not-allowed" : "pointer",
         }}
       >
         {busy ? "در حال انجام..." : "ثبت سفارش و رفتن به پرداخت"}
       </button>
+
+      <div style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
+        نکته: سبد خرید بعد از پرداخت موفق خالی می‌شود (مرحله بعدی UX).
+      </div>
     </div>
   );
 }
