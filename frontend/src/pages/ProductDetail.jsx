@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import toast from "react-hot-toast";
+
 import { useCart } from "../cart/CartContext.jsx";
+import Skeleton from "../ui/Skeleton.jsx";
 
 export default function ProductDetail() {
   const { slug } = useParams();
@@ -15,19 +18,15 @@ export default function ProductDetail() {
   useEffect(() => {
     setErr(null);
     setP(null);
+    setSize("");
+    setColor("");
 
     fetch(`/api/products/${slug}/`)
       .then((r) => {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       })
-      .then((data) => {
-        setP(data);
-
-        // ریست انتخاب‌ها وقتی محصول عوض می‌شود
-        setSize("");
-        setColor("");
-      })
+      .then((data) => setP(data))
       .catch((e) => setErr(String(e)));
   }, [slug]);
 
@@ -56,20 +55,96 @@ export default function ProductDetail() {
 
   const inStock = selectedVariant ? (selectedVariant.quantity ?? 0) > 0 : false;
 
-  if (err) return <pre style={{ padding: 24, whiteSpace: "pre-wrap" }}>{err}</pre>;
-  if (!p) return <p style={{ padding: 24 }}>Loading...</p>;
+  if (err) {
+    return (
+      <div style={{ padding: 24, fontFamily: "sans-serif" }}>
+        <pre style={{ whiteSpace: "pre-wrap" }}>{err}</pre>
+        <Link to="/">بازگشت</Link>
+      </div>
+    );
+  }
+
+  // Skeleton loading view
+  if (!p) {
+    return (
+      <div style={{ padding: 24, fontFamily: "sans-serif", maxWidth: 1000, margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Skeleton w={80} h={14} />
+          <Skeleton w={120} h={12} />
+        </div>
+
+        <div style={{ marginTop: 18 }}>
+          <Skeleton h={26} w="55%" />
+          <div style={{ marginTop: 10 }}>
+            <Skeleton h={14} w="35%" />
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 24 }}>
+          <div>
+            <Skeleton h={420} r={12} />
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <Skeleton w={84} h={84} r={10} />
+              <Skeleton w={84} h={84} r={10} />
+              <Skeleton w={84} h={84} r={10} />
+            </div>
+          </div>
+
+          <div>
+            <Skeleton h={14} w="90%" />
+            <div style={{ marginTop: 8 }}>
+              <Skeleton h={14} w="85%" />
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <Skeleton h={14} w="70%" />
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <Skeleton h={12} w="20%" />
+              <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                <Skeleton w={60} h={34} r={8} />
+                <Skeleton w={60} h={34} r={8} />
+                <Skeleton w={60} h={34} r={8} />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <Skeleton h={12} w="20%" />
+              <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                <Skeleton w={70} h={34} r={8} />
+                <Skeleton w={70} h={34} r={8} />
+                <Skeleton w={70} h={34} r={8} />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <Skeleton h={60} r={12} />
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <Skeleton h={44} r={10} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const mainImage = p.images?.[0]?.image_url;
 
   return (
     <div style={{ padding: 24, fontFamily: "sans-serif", maxWidth: 1000, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <Link to="/" style={{ textDecoration: "none" }}>← بازگشت</Link>
+        <Link to="/" style={{ textDecoration: "none" }}>
+          ← بازگشت
+        </Link>
         <div style={{ opacity: 0.7, fontSize: 12 }}>slug: {p.slug}</div>
       </div>
 
       <h1 style={{ marginBottom: 6 }}>{p.title}</h1>
-      <div style={{ opacity: 0.7 }}>{p.brand} • {p.category}</div>
+      <div style={{ opacity: 0.7 }}>
+        {p.brand} • {p.category}
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 24 }}>
         <div>
@@ -92,7 +167,13 @@ export default function ProductDetail() {
                   key={idx}
                   src={img.image_url}
                   alt={img.alt_text || p.title}
-                  style={{ width: 84, height: 84, objectFit: "cover", borderRadius: 8, border: "1px solid #ddd" }}
+                  style={{
+                    width: 84,
+                    height: 84,
+                    objectFit: "cover",
+                    borderRadius: 8,
+                    border: "1px solid #ddd",
+                  }}
                 />
               ))}
             </div>
@@ -188,9 +269,9 @@ export default function ProductDetail() {
           <button
             disabled={!selectedVariant || !inStock}
             onClick={() => {
-              if (!selectedVariant) return;
-              if (!inStock) return;
+              if (!selectedVariant || !inStock) return;
               addItem(selectedVariant, p);
+              toast.success("به سبد خرید اضافه شد");
             }}
             style={{
               marginTop: 16,
@@ -211,7 +292,6 @@ export default function ProductDetail() {
               : "افزودن به سبد خرید"}
           </button>
 
-          {/* OPTIONAL: لینک رفتن به سبد */}
           <div style={{ marginTop: 12, textAlign: "center" }}>
             <Link to="/cart">مشاهده سبد خرید</Link>
           </div>
